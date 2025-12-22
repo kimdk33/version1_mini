@@ -2,14 +2,11 @@ from get_wrong_way_and_speeding import list_up, list_down
 
 import pandas as pd
 
-
-list_up = list_up
-list_down = list_down
-
 df_data = pd.DataFrame()
 
 # 중앙선과 각 차선의 정보
 # cctv 별로는 정보는 차후 개발 고려
+
 
 def get_road_info(tid, cx):
 

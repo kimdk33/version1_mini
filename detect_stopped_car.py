@@ -5,7 +5,7 @@ curr_centers = {}
 stop_counter = {}
 
 
-def detect_highway_stopped_vehicle(tid, cx, cy) -> tuple[True, str] | None:
+def detect_highway_stopped_vehicle(tid, cx, cy) -> tuple[bool, str] | None:
 
     if tid not in vehicle_id:
         vehicle_id.add(tid)
