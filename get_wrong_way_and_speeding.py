@@ -11,7 +11,9 @@ from sklearn.linear_model import LinearRegression
 dq_up = deque(maxlen=200)
 dq_down = deque(maxlen=200)
 
-df_px_speed = pd.DataFrame(columns=["up", "up_target", "down", "down_target"])
+df_px_speed = pd.DataFrame(
+    columns=["up_x", "up_y", "up_target", "down_x", "down_y", "down_target"]
+)
 
 
 def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
@@ -19,16 +21,24 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
     speed_constant = 110 / speed_px1
 
     if car_direction == "up":
-        if cls == 2:
-            df_px_speed[tid, ["up", "up_target"]] = [cx, speed_constant]
+        if (cls == 2) and (len(df_px_speed) < 1000):
+            df_px_speed.loc[tid, "up_x"] = cx
+            df_px_speed.loc[tid, "up_y"] = cy
+            df_px_speed.loc[tid, "up_target"] = speed_constant
         dq_up.append([cx, cy])
+        print("방향 개수", len(dq_up))
         direction = 1
 
     elif car_direction == "down":
-        if cls == 2:
-            df_px_speed[tid, ["down", "down_target"]] = [cx, speed_constant]
+        if (cls == 2) and (len(df_px_speed) < 1000):
+            df_px_speed.loc[tid, "down_x"] = cx
+            df_px_speed.loc[tid, "down_y"] = cy
+            df_px_speed.loc[tid, "down_target"] = speed_constant
+
         dq_down.append([cx, cy])
+        print("방향 개수", len(dq_down))
         direction = 0
+
     else:
         return None
 
@@ -50,55 +60,78 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
         return None
 
 
-def get_real_speed(cx):
-    global df_px_speed
-    up_num: int = df_px_speed["up"].count()
-    down_num: int = df_px_speed["down"].count()
+# model_up = None
+# model_down = None
+
+num = 0
+
+
+def get_real_speed(cx, cy, direction):
+    global df_px_speed, num
+    print(" 데이터 프페임의 개수는", len(df_px_speed))
+    up_num: int = df_px_speed["up_target"].count()
+    down_num: int = df_px_speed["down_target"].count()
+
+    # df_px_speed[tid, ["up_x","up_y" , "up_target"]]
 
     if up_num < 30 or down_num < 30:
+        num += 1
+        print(f"속도보정 학습중 {num}")
         return None
 
     else:
+        if direction == "up":
+            if len(df_px_speed) <= 998:
+                col1 = "up_target"
 
-        col1 = "up"
+                q_up = df_px_speed[col1].quantile(0.25)
+                q3_up = df_px_speed[col1].quantile(0.75)
+                iqr_up = q3_up - q_up
 
-        q_up = df_px_speed[col1].quantile(0.25)
-        q3_up = df_px_speed[col1].quantile(0.75)
-        iqr_up = q3_up - q_up
+                df_up = df_px_speed[
+                    (df_px_speed[col1] >= q_up - 1.5 * iqr_up)
+                    & (df_px_speed[col1] <= q3_up + 1.5 * iqr_up)
+                ]
 
-        df_up = df_px_speed[
-            (df_px_speed[col1] >= q_up - 1.5 * iqr_up)
-            & (df_px_speed[col1] <= q3_up + 1.5 * iqr_up)
-        ]
+                data = [[x, y] for x, y in zip(df_up["up_x"], df_up["up_y"])]
 
-        ave1 = df_up.mean()
-        target_ave_1 = df_up["up_target"].mean()
+                # print(data)
 
-        col2 = "down"
+                data_target = [x for x in df_up["up_target"]]
 
-        q_down = df_px_speed[col2].quantile(0.25)
-        q3_down = df_px_speed[col2].quantile(0.75)
-        iqr_down = q3_down - q_down
+                model_up = LinearRegression()
+                model_up.fit(data, data_target)
 
-        df_down = df_px_speed[
-            (df_px_speed[col2] >= q_down - 1.5 * iqr_down)
-            & (df_px_speed[col2] <= q3_down + 1.5 * iqr_down)
-        ]
+                real_speed_constant = model_up.predict([[cx, cy]])
+                # print('기울기', model.coef_)  # [w1, w2]
+                # print('y절편', model.intercept_)
+                # print('원하는 값', real_speed)
 
-        ave2 = df_down.mean()
-        target_ave_2 = df_down["down_target"].mean()
+                return real_speed_constant
 
-        data = [
-            [ave1],
-            [ave2],
-        ]
+        else:
 
-        data_target = [target_ave_1, target_ave_2]
-        model = LinearRegression()
-        model.fit(data, data_target)
-        real_speed = model.predict([[cx]])
-        # print('기울기', model.coef_)  # [w1, w2]
-        # print('y절편', model.intercept_)
-        # print('원하는 값', real_speed)
+            if len(df_px_speed) <= 998:
+                col2 = "down_target"
 
-        return real_speed
+                q_down = df_px_speed[col2].quantile(0.25)
+                q3_down = df_px_speed[col2].quantile(0.75)
+                iqr_down = q3_down - q_down
+
+                df_down = df_px_speed[
+                    (df_px_speed[col2] >= q_down - 1.5 * iqr_down)
+                    & (df_px_speed[col2] <= q3_down + 1.5 * iqr_down)
+                ]
+
+                data = [[x, y] for x, y in zip(df_down["down_x"], df_down["down_y"])]
+
+                data_target = [x for x in df_down["down_target"]]
+
+                model_down = LinearRegression()
+                model_down.fit(data, data_target)
+                real_speed_constant = model_down.predict([[cx, cy]])
+                # print('기울기', model.coef_)  # [w1, w2]
+                # print('y절편', model.intercept_)
+                # print('원하는 값', real_speed)
+
+                return real_speed_constant

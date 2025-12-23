@@ -12,8 +12,9 @@ def detect_car_direction(
 ) -> tuple[str, float] | None:
 
     if tid not in vehicle_id_direction:
-        pre_location[tid] = [(frame_num + 5) % 180, cx, cy]
+        pre_location[tid] = [(frame_num + 6) % 180, cx, cy]
         vehicle_id_direction.add(tid)
+
         return None
 
     if pre_location[tid] is None:
