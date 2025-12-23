@@ -9,7 +9,7 @@ from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
 import time
 
 
-file_path = f"./videos/20251222 10_00_02_[mon1].mp4"
+file_path = f"./videos/20251222 10_00_02_JINKOOK2.mp4"
 cctv_id = 4
 cap = cv2.VideoCapture(file_path)
 
@@ -245,8 +245,8 @@ while cap.isOpened():
         break
 
     # 프레임 5000일 때와 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
-    if frame_count % 5000 == 0 or cv2.waitKey(1) & 0xFF == ord("r"):
-        file_excel = f"./results/highway_traffic{cctv_id}_{int(time.time())}.xlsx"
+    if frame_count % 54000 == 0 or cv2.waitKey(1) & 0xFF == ord("r"):
+        file_excel = f"./results/highway_traffic[{cctv_id}]_{frame_count}.xlsx"
         df.to_excel(file_excel, index=False)
         print("엑셀로 교통분석을 내보냅니다.")
 
