@@ -26,7 +26,6 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
             df_px_speed.loc[tid, "up_y"] = cy
             df_px_speed.loc[tid, "up_target"] = speed_constant
         dq_up.append([cx, cy])
-        print("방향 개수", len(dq_up))
         direction = 1
 
     elif car_direction == "down":
@@ -35,8 +34,7 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
             df_px_speed.loc[tid, "down_y"] = cy
             df_px_speed.loc[tid, "down_target"] = speed_constant
 
-        dq_down.append([cx, cy])
-        print("방향 개수", len(dq_down))
+        dq_down.append([cx, cy]))
         direction = 0
 
     else:
@@ -68,7 +66,6 @@ num = 0
 
 def get_real_speed(cx, cy, direction):
     global df_px_speed, num
-    print(" 데이터 프페임의 개수는", len(df_px_speed))
     up_num: int = df_px_speed["up_target"].count()
     down_num: int = df_px_speed["down_target"].count()
 
