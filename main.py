@@ -244,7 +244,7 @@ while cap.isOpened():
     if cv2.waitKey(1) & 0xFF == 27:  # ESC 누르면 종료
         break
 
-    # 프레임 5000일 때와 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
+    # 30분 간격(프레임 5400)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
     if frame_count % 54000 == 0 or cv2.waitKey(1) & 0xFF == ord("r"):
         file_excel = f"./results/highway_traffic[{cctv_id}]_{frame_count}.xlsx"
         df.to_excel(file_excel, index=False)
