@@ -34,7 +34,7 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
             df_px_speed.loc[tid, "down_y"] = cy
             df_px_speed.loc[tid, "down_target"] = speed_constant
 
-        dq_down.append([cx, cy]))
+        dq_down.append([cx, cy])
         direction = 0
 
     else:
