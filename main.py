@@ -9,7 +9,7 @@ from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
 import time
 
 
-file_path = f"./videos/20251222 10_00_02_JINKOOK2.mp4"
+file_path = f"/content/drive/MyDrive/videos/jung-bu_Danpyung_1gyo.mp4"
 cctv_id = 4
 cap = cv2.VideoCapture(file_path)
 
@@ -32,11 +32,6 @@ frame_count = 0
 vehicle_id = {}
 recording_start = {}
 
-# 빈 데이터 프레임 만들기
-# columns = ["type", "dir", "speed", "datetime", "alarm", "file_name"]
-# 예1) 1 : [버스, up, 160, 25-12-19_13:00:00, 과속, speeding_25-12-19_13:00:00.mp4 ]
-# 예2) 1 : [자가용, down, 110, 25-12-19_13:00:00, 주정차, parking_25-12-19_13:00:00.mp4 ]
-
 df = pd.DataFrame(
     columns=["type", "direction", "speed", "datetime", "illegal", "file_name"]
 )
@@ -46,7 +41,7 @@ while cap.isOpened():
     frame_num += 1
     frame_count += 1
     direction = None
-
+    print(frame_num, frame_count)
     if frame_count % 2 != 0:
         continue
 
@@ -143,7 +138,6 @@ while cap.isOpened():
         result_dir_speed = detect_car_direction(tid, cx, cy, frame_num, one_second)
 
         if result_dir_speed is None:
-
             continue
 
         else:
@@ -199,23 +193,12 @@ while cap.isOpened():
                 df.loc[tid, "speed"] = speed_px1 * real_speed
                 # print(cls, df.loc[tid, "speed"])
 
-    # ==================================================================================
-    # ====================================== 역주행 테스트 ===============================
-    #
-    # if frame_num == 180:
-    #     # tid, cls, cx, cy, car_direction, speed_px1
-    #     wrong_way_drive(1, 100, 300, 300, "up", 1000)
-    #     df.loc["wrong_way"] = None
-    #     df.loc["wrong_way", ["illegal", "file_name"]] = ["wrong_way", "test"]
-    #     print("wrong_way", df)
-    # ==================================================================================
-
     # 리코딩 시작:  아이디 그리고 불법 종류 별로
     if recording_start:
         for key in list(recording_start.keys()):
             if recording_start[key][0] == frame_num:
                 fourcc = cv2.VideoWriter.fourcc(*"mp4v")
-                file_out_path = f"results/{recording_start[key][1]}.mp4"
+                file_out_path = f"./results/{recording_start[key][1]}.mp4"
                 out = cv2.VideoWriter(file_out_path, fourcc, fps, (720, 480))
                 print("리코딩을 시작합니다")
                 for f in dq:
@@ -233,7 +216,7 @@ while cap.isOpened():
         cy = int(recording_start[key][3])
         cv2.circle(result, (cx, cy), 20, (0, 0, 255), 3)
 
-    cv2.imshow("frame", result)
+    # cv2.imshow("frame", result)
 
     # 녹화할 영상 dq에  담기
     dq.append(result)
@@ -244,9 +227,9 @@ while cap.isOpened():
     if cv2.waitKey(1) & 0xFF == 27:  # ESC 누르면 종료
         break
 
-    # 30분 간격(프레임 5400)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
-    if frame_count % 54000 == 0 or cv2.waitKey(1) & 0xFF == ord("r"):
-        file_excel = f"./results/highway_traffic[{cctv_id}]_{frame_count}.xlsx"
+    # 30분 간격(프레임 54000)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
+    if frame_count % 54000 == 0:
+        file_excel = f"/content/drive/MyDrive/results/highway_jungbu_danpyung.xlsx"
         df.to_excel(file_excel, index=False)
         print("엑셀로 교통분석을 내보냅니다.")
 
@@ -254,6 +237,9 @@ while cap.isOpened():
 
 
 # DB로 저장한다.
+
+file_excel = f"/content/drive/MyDrive/results/highway_traffic[{cctv_id}]_final.xlsx"
+df.to_excel(file_excel, index=False)
 
 cap.release()
 cv2.destroyAllWindows()
