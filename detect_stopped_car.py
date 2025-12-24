@@ -30,7 +30,7 @@ def detect_highway_stopped_vehicle(tid, cx, cy) -> tuple[bool, int] | None:
         pass
     # 10초간 움직임이 없다면 경고하고, 해당 id의 stop_count를 리셋한다.
     if stop_counter[tid] > 300:
-        stop_counter[tid] = 0
+        # stop_counter[tid] = 0
         return True, tid
     return None
 

@@ -8,11 +8,11 @@ pre_location = {}
 
 
 def detect_car_direction(
-    tid, cx, cy, frame_num, one_second
+    tid, cx, cy, frame_count, one_second
 ) -> tuple[str, float] | None:
 
     if tid not in vehicle_id_direction:
-        pre_location[tid] = [(frame_num + 6) % 180, cx, cy]
+        pre_location[tid] = [(frame_count + 8), cx, cy]
         vehicle_id_direction.add(tid)
 
         return None
@@ -26,9 +26,9 @@ def detect_car_direction(
         pre_location[tid][2],
     )
 
-    # 5프레임 약 0.5초후에 속력 파악 : (pre_frame = frame_num + 5)
+    # 7프레임 약 0.5초후에 속력 파악 : (pre_frame = frame_count + 8)
 
-    if frame_num == prev_frame:
+    if frame_count == prev_frame:
         # 차량 이동 계산
         dx = cx - prev_cx
         dy = cy - prev_cy

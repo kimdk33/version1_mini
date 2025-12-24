@@ -6,11 +6,10 @@ from collections import deque
 from detect_stopped_car import detect_highway_stopped_vehicle
 from get_speed_direction import detect_car_direction
 from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
-import time
 
 
-file_path = f"/content/drive/MyDrive/videos/jung-bu_Danpyung_1gyo.mp4"
-cctv_id = 4
+file_path = f"./videos/sample video/a.mp4"
+cctv_id = 1228
 cap = cv2.VideoCapture(file_path)
 
 
@@ -20,11 +19,11 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 one_second = 1 * 5 / fps
 
 
-model = YOLO("best1.pt")
+model = YOLO("best20.pt")
 model1 = YOLO("yolov8n.pt")
 # 실시간으로 6초 180개의 frame을 저장할 리스트 dq 설정
-dq = deque(maxlen=100)
-frame_num = 0
+dq = deque(maxlen=120)
+
 frame_count = 0
 
 # 탐지된 차량 저장 딕션너리
@@ -38,10 +37,8 @@ df = pd.DataFrame(
 
 
 while cap.isOpened():
-    frame_num += 1
     frame_count += 1
     direction = None
-    print(frame_num, frame_count)
     if frame_count % 2 != 0:
         continue
 
@@ -67,7 +64,14 @@ while cap.isOpened():
             date_time = datetime.now()
             file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
             # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
-            recording_start[M_id] = [(frame_num + 60) % 180, file_name, mx, my]
+            recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
+
+            # 불법차량 빨간색 원으로 표시할 좌표
+            try:
+                recording_start[M_id][2] = mx
+                recording_start[M_id][3] = my
+            except:
+                pass
 
             if cls == 0:
                 print("경고! 고속도로 위에서 사람 발견")
@@ -80,7 +84,7 @@ while cap.isOpened():
     frame[:200, :] = 255  # 화면 상단 하얀색으로 전처리
 
     results = model.track(
-        frame, verbose=False, conf=0.7, persist=True, classes=[0, 1, 2]
+        frame, verbose=False, conf=0.7, persist=True, classes=[0, 1, 2, 3, 4]
     )
 
     for box in results[0].boxes:
@@ -115,7 +119,7 @@ while cap.isOpened():
                 stopped_car_datetime = datetime.now()
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
                 file_name = f"parking[{tid}]_{stopped_car_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
-                recording_start[tid] = [(frame_num + 60) % 180, file_name, cx, cy]
+                recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = ["parking", f"{file_name}.mp4"]
         except:
@@ -134,15 +138,19 @@ while cap.isOpened():
         # ==========================================================================
         if tid not in vehicle_id and in_zone:
             vehicle_id[tid] = 0
+            # 프로그램 작동여부 1번 확인소
             # print(f"처음 Id: {tid}, y1의 좌표: {cy}")
-        result_dir_speed = detect_car_direction(tid, cx, cy, frame_num, one_second)
+        result_dir_speed = detect_car_direction(tid, cx, cy, frame_count, one_second)
 
         if result_dir_speed is None:
+
             continue
 
         else:
             cls = int(box.cls)
             direction, speed_px = result_dir_speed
+            # 프로그램 작동여부 확인 2번쩨 포인트
+            # print(speed_px)
             data_time = f"{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}"
             # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
             cols = ["type", "direction", "speed", "datetime"]
@@ -176,7 +184,7 @@ while cap.isOpened():
                 wrong_way_datetime = datetime.now()
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
                 file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
-                recording_start[tid] = [(frame_num + 60) % 180, file_name, cx, cy]
+                recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = [
                     "wrong_way",
@@ -193,30 +201,39 @@ while cap.isOpened():
                 df.loc[tid, "speed"] = speed_px1 * real_speed
                 # print(cls, df.loc[tid, "speed"])
 
+        # 불법차량 빨간색 원으로 표시할 좌표
+        try:
+            recording_start[tid][2] = cx
+            recording_start[tid][3] = cy
+        except:
+            pass
+
+    result = results[0].plot()
+    for key in recording_start.keys():
+        cx = int(recording_start[key][2])
+        cy = int(recording_start[key][3])
+        # 불법차량 녹화 작동여부 확인소 3번째
+        print(key, cx, cy, recording_start[key])
+        cv2.circle(result, (cx, cy), 20, (0, 0, 255), 3)
+
     # 리코딩 시작:  아이디 그리고 불법 종류 별로
     if recording_start:
         for key in list(recording_start.keys()):
-            if recording_start[key][0] == frame_num:
+            if recording_start[key][0] == frame_count:
+                print("리코딩을 시작합니다")
                 fourcc = cv2.VideoWriter.fourcc(*"mp4v")
                 file_out_path = f"./results/{recording_start[key][1]}.mp4"
-                out = cv2.VideoWriter(file_out_path, fourcc, fps, (720, 480))
-                print("리코딩을 시작합니다")
+                out = cv2.VideoWriter(
+                    file_out_path, fourcc, fps, (720, 480)
+                )  # (720, 480),  (1920, 1080)
+
                 for f in dq:
                     out.write(f)
 
                 out.release()
                 recording_start.pop(key)  # 한 번만 실행
 
-    if frame_num == 180:
-        frame_num = 0
-
-    result = results[0].plot()
-    for key in recording_start.keys():
-        cx = int(recording_start[key][2])
-        cy = int(recording_start[key][3])
-        cv2.circle(result, (cx, cy), 20, (0, 0, 255), 3)
-
-    # cv2.imshow("frame", result)
+    cv2.imshow("frame", result)
 
     # 녹화할 영상 dq에  담기
     dq.append(result)
@@ -228,17 +245,18 @@ while cap.isOpened():
         break
 
     # 30분 간격(프레임 54000)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
-    if frame_count % 54000 == 0:
-        file_excel = f"/content/drive/MyDrive/results/highway_jungbu_danpyung.xlsx"
-        df.to_excel(file_excel, index=False)
+    if frame_count % 200 == 0 & 0xFF == ord("r"):
         print("엑셀로 교통분석을 내보냅니다.")
+
+        file_excel = f"./results/highway[{cctv_id}].xlsx"
+        df.to_excel(file_excel, index=False)
 
 # 데이터를 주기적으로 엑셀파일로 방출한다.
 
 
 # DB로 저장한다.
 
-file_excel = f"/content/drive/MyDrive/results/highway_traffic[{cctv_id}]_final.xlsx"
+file_excel = f"./results/highway_traffic[{cctv_id}]_final.xlsx"
 df.to_excel(file_excel, index=False)
 
 cap.release()

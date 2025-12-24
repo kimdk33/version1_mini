@@ -21,7 +21,7 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
     speed_constant = 110 / speed_px1
 
     if car_direction == "up":
-        if cls == 2:
+        if (cls == 2) and (len(df_px_speed) < 1000):
             df_px_speed.loc[tid, "up_x"] = cx
             df_px_speed.loc[tid, "up_y"] = cy
             df_px_speed.loc[tid, "up_target"] = speed_constant
@@ -29,7 +29,7 @@ def wrong_way_drive(tid, cls, cx, cy, car_direction, speed_px1):
         direction = 1
 
     elif car_direction == "down":
-        if cls == 2:
+        if (cls == 2) and (len(df_px_speed) < 1000):
             df_px_speed.loc[tid, "down_x"] = cx
             df_px_speed.loc[tid, "down_y"] = cy
             df_px_speed.loc[tid, "down_target"] = speed_constant
@@ -78,7 +78,7 @@ def get_real_speed(cx, cy, direction):
 
     else:
         if direction == "up":
-            if len(df_px_speed):
+            if len(df_px_speed) <= 998:
                 col1 = "up_target"
 
                 q_up = df_px_speed[col1].quantile(0.25)
@@ -108,7 +108,7 @@ def get_real_speed(cx, cy, direction):
 
         else:
 
-            if len(df_px_speed):
+            if len(df_px_speed) <= 998:
                 col2 = "down_target"
 
                 q_down = df_px_speed[col2].quantile(0.25)
