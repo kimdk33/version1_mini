@@ -245,7 +245,7 @@ while cap.isOpened():
         break
 
     # 30분 간격(프레임 54000)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
-    if frame_count % 200 == 0 & 0xFF == ord("r"):
+    if frame_count % 54000 == 0 & 0xFF == ord("r"):
         print("엑셀로 교통분석을 내보냅니다.")
 
         file_excel = f"./results/highway[{cctv_id}].xlsx"
