@@ -8,8 +8,8 @@ from get_speed_direction import detect_car_direction
 from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
 
 
-file_path = f"./videos/sample video/a.mp4"
-cctv_id = 1228
+file_path = f"./videos/i_stopcar_people_reverse.mp4"
+cctv_id = "test1"
 cap = cv2.VideoCapture(file_path)
 
 
@@ -51,42 +51,42 @@ while cap.isOpened():
     # =======================  오토바이 & 사람 탐지  =====================
     # =================================================================
 
-    # 사람과 오토바이 탐지 YOLO 모델 적용
-    detect_motorcycle = model1.track(frame, verbose=False, persist=True, classes=[0, 3])
-
-    for box in detect_motorcycle[0].boxes:
-        if box.id is None:
-            continue
-        else:
-            M_id = int(box.id)
-            cls = int(box.cls)
-            mx, my, _, _ = box.xywh[0].tolist()
-            date_time = datetime.now()
-            file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
-            # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
-            recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
-
-            # 불법차량 빨간색 원으로 표시할 좌표
-            try:
-                recording_start[M_id][2] = mx
-                recording_start[M_id][3] = my
-            except:
-                pass
-
-            if cls == 0:
-                print("경고! 고속도로 위에서 사람 발견")
-
-            elif cls == 3:
-                print("경고! 고속도로 위에서 오토바이 발견")
+    # # 사람과 오토바이 탐지 YOLO 모델 적용
+    # detect_motorcycle = model1.track(frame, verbose=False, persist=True, classes=[0, 3])
+    #
+    # for box in detect_motorcycle[0].boxes:
+    #     if box.id is None:
+    #         continue
+    #     else:
+    #         M_id = int(box.id)
+    #         cls = int(box.cls)
+    #         mx, my, _, _ = box.xywh[0].tolist()
+    #         date_time = datetime.now()
+    #         file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
+    #         # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
+    #         recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
+    #
+    #         # 불법차량 빨간색 원으로 표시할 좌표
+    #         try:
+    #             recording_start[M_id][2] = mx
+    #             recording_start[M_id][3] = my
+    #         except:
+    #             pass
+    #
+    #         if cls == 0:
+    #             print("경고! 고속도로 위에서 사람 발견")
+    #
+    #         elif cls == 3:
+    #             print("경고! 고속도로 위에서 오토바이 발견")
 
     # 분석하지 않는 화면 하얀색으로 전처리
 
-    frame[:200, :] = 255  # 화면 상단 하얀색으로 전처리
+    # frame[:150, :] = 255  # 화면 상단 하얀색으로 전처리
 
     results = model.track(
         frame, verbose=False, conf=0.7, persist=True, classes=[0, 1, 2, 3, 4]
     )
-
+    result = results[0].plot()
     for box in results[0].boxes:
 
         if box.id is None:
@@ -183,14 +183,18 @@ while cap.isOpened():
 
                 wrong_way_datetime = datetime.now()
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
+
                 file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
                 recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
+
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = [
                     "wrong_way",
                     f"{file_name}.mp4",
                 ]
 
+                # recording_start[tid][2] = cx
+                # recording_start[tid][3] = cy
             # 차선에 따른 속력보정후 실제 속력
             real_speed = get_real_speed(cx, cy, car_direction)
             if real_speed is None:
@@ -201,19 +205,18 @@ while cap.isOpened():
                 df.loc[tid, "speed"] = speed_px1 * real_speed
                 # print(cls, df.loc[tid, "speed"])
 
-        # 불법차량 빨간색 원으로 표시할 좌표
-        try:
-            recording_start[tid][2] = cx
-            recording_start[tid][3] = cy
-        except:
-            pass
+        # 불법차량 빨간색 원으로 표시할 좌표  # 188, 189줄 참고
+        # try:
+        #     recording_start[tid][2] = cx
+        #     recording_start[tid][3] = cy
+        # except:
+        #     pass
 
-    result = results[0].plot()
     for key in recording_start.keys():
         cx = int(recording_start[key][2])
         cy = int(recording_start[key][3])
         # 불법차량 녹화 작동여부 확인소 3번째
-        print(key, cx, cy, recording_start[key])
+        # print(key, cx, cy, recording_start[key])
         cv2.circle(result, (cx, cy), 20, (0, 0, 255), 3)
 
     # 리코딩 시작:  아이디 그리고 불법 종류 별로
@@ -245,7 +248,7 @@ while cap.isOpened():
         break
 
     # 30분 간격(프레임 54000)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
-    if frame_count % 54000 == 0 & 0xFF == ord("r"):
+    if frame_count % 54000 == 0 or (cv2.waitKey(1) & 0xFF == ord("r")):
         print("엑셀로 교통분석을 내보냅니다.")
 
         file_excel = f"./results/highway[{cctv_id}].xlsx"
