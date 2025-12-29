@@ -3,3 +3,7 @@ venv
 
 videos
 results
+
+best1_openvino_model
+best20_openvino_model
+yolov8n_openvino_model

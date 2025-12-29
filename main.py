@@ -6,10 +6,45 @@ from collections import deque
 from detect_stopped_car import detect_highway_stopped_vehicle
 from get_speed_direction import detect_car_direction
 from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
+import requests
+from concurrent.futures import ThreadPoolExecutor
+
+# 비동기 요청을 위한 스레드 풀 (최대 3개의 동시 요청)
+executor = ThreadPoolExecutor(max_workers=3)
+
+# API 설정
+API_BASE_URL = "http://localhost:5000/api"
 
 
-file_path = f"./videos/i_stopcar_people_reverse.mp4"
-cctv_id = "test1"
+def send_anomaly_async(file_path, anomaly_type, cctv_id):
+    """비동기로 이상 감지 데이터를 서버에 전송"""
+    executor.submit(_send_anomaly_request, file_path, anomaly_type, cctv_id)
+
+
+def _send_anomaly_request(file_path, anomaly_type, cctv_id):
+    """실제 API 요청을 수행하는 함수"""
+    try:
+        url = f"{API_BASE_URL}/traffic_anomalies"
+        data = {
+            "type": anomaly_type,
+            "cctv_id": cctv_id,
+            "detected_at": datetime.now().isoformat(),
+        }
+
+        with open(file_path, "rb") as f:
+            files = {"file": (file_path.split("/")[-1], f, "video/mp4")}
+            response = requests.post(url, data=data, files=files, timeout=30)
+
+        if response.status_code == 200 or response.status_code == 201:
+            print(f"[API] 전송 성공: {anomaly_type} - {file_path}")
+        else:
+            print(f"[API] 전송 실패: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"[API] 요청 오류: {e}")
+
+
+file_path = f"./videos/monitoring.mp4"
+cctv_id = "8"
 cap = cv2.VideoCapture(file_path)
 
 
@@ -19,8 +54,8 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 one_second = 1 * 5 / fps
 
 
-model = YOLO("best20.pt")
-model1 = YOLO("yolov8n.pt")
+model = YOLO("./best20_openvino_model")
+model1 = YOLO("./yolov8n_openvino_model")
 # 실시간으로 6초 180개의 frame을 저장할 리스트 dq 설정
 dq = deque(maxlen=120)
 
@@ -39,13 +74,14 @@ df = pd.DataFrame(
 while cap.isOpened():
     frame_count += 1
     direction = None
-    if frame_count % 2 != 0:
-        continue
 
     # print("Vehicle ID", vehicle_id)
     success, frame = cap.read()
     if not success:
         break
+
+    if frame_count % 2 != 0:
+        continue
 
     # =================================================================
     # =======================  오토바이 & 사람 탐지  =====================
@@ -62,7 +98,7 @@ while cap.isOpened():
             cls = int(box.cls)
             mx, my, _, _ = box.xywh[0].tolist()
             date_time = datetime.now()
-            file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
+            file_name = f"motorcycle_people_{date_time.strftime('%Y_%m_%d_%H_%M_%S')}"
             # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
             recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
 
@@ -118,7 +154,7 @@ while cap.isOpened():
                 # 현시간을 기준으로 전후 3초, 총 6초간 동영상 녹화
                 stopped_car_datetime = datetime.now()
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
-                file_name = f"parking[{tid}]_{stopped_car_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
+                file_name = f"parking[{tid}]_{stopped_car_datetime.strftime('%Y_%m_%d_%H_%M_%S')}"
                 recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = ["parking", f"{file_name}.mp4"]
@@ -184,7 +220,7 @@ while cap.isOpened():
                 wrong_way_datetime = datetime.now()
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
 
-                file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
+                file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime('%Y_%m_%d_%H_%M_%S')}"
                 recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
 
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
@@ -234,6 +270,20 @@ while cap.isOpened():
                     out.write(f)
 
                 out.release()
+
+                # 파일명에서 anomaly 타입 추출하여 비동기 API 요청
+                file_name_str = recording_start[key][1]
+                if file_name_str.startswith("parking"):
+                    anomaly_type = "불법주차"
+                elif file_name_str.startswith("wrong_way"):
+                    anomaly_type = "역주행"
+                elif file_name_str.startswith("motorcycle_people"):
+                    anomaly_type = "오토바이/사람"
+                else:
+                    anomaly_type = "기타"
+
+                send_anomaly_async(file_out_path, anomaly_type, cctv_id)
+
                 recording_start.pop(key)  # 한 번만 실행
 
     cv2.imshow("frame", result)
@@ -264,3 +314,8 @@ df.to_excel(file_excel, index=False)
 
 cap.release()
 cv2.destroyAllWindows()
+
+# 스레드 풀 정리 (모든 요청 완료 대기)
+print("대기 중인 API 요청 완료 중...")
+executor.shutdown(wait=True)
+print("모든 API 요청이 완료되었습니다.")

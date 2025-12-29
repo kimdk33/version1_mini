@@ -5,4 +5,14 @@
     <option name="sdkName" value="Python 3.13 (PyCharmMiscProject)" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (PyCharmMiscProject)" project-jdk-type="Python SDK" />
+  <component name="RuffConfiguration">
+    <option name="enabled" value="true" />
+    <option name="executableDiscoveryMode" value="PATH" />
+    <option name="pathToExecutable" value="$USER_HOME$/.local/bin/ruff" />
+  </component>
+  <component name="TyConfiguration">
+    <option name="enabled" value="true" />
+    <option name="executableDiscoveryMode" value="PATH" />
+    <option name="pathToExecutable" value="$USER_HOME$/.local/bin/ty" />
+  </component>
 </project>
