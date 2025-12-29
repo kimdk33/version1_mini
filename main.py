@@ -52,32 +52,32 @@ while cap.isOpened():
     # =================================================================
 
     # # 사람과 오토바이 탐지 YOLO 모델 적용
-    # detect_motorcycle = model1.track(frame, verbose=False, persist=True, classes=[0, 3])
-    #
-    # for box in detect_motorcycle[0].boxes:
-    #     if box.id is None:
-    #         continue
-    #     else:
-    #         M_id = int(box.id)
-    #         cls = int(box.cls)
-    #         mx, my, _, _ = box.xywh[0].tolist()
-    #         date_time = datetime.now()
-    #         file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
-    #         # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
-    #         recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
-    #
-    #         # 불법차량 빨간색 원으로 표시할 좌표
-    #         try:
-    #             recording_start[M_id][2] = mx
-    #             recording_start[M_id][3] = my
-    #         except:
-    #             pass
-    #
-    #         if cls == 0:
-    #             print("경고! 고속도로 위에서 사람 발견")
-    #
-    #         elif cls == 3:
-    #             print("경고! 고속도로 위에서 오토바이 발견")
+    detect_motorcycle = model1.track(frame, verbose=False, persist=True, classes=[0, 3])
+
+    for box in detect_motorcycle[0].boxes:
+        if box.id is None:
+            continue
+        else:
+            M_id = int(box.id)
+            cls = int(box.cls)
+            mx, my, _, _ = box.xywh[0].tolist()
+            date_time = datetime.now()
+            file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
+            # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
+            recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
+
+            # 불법차량 빨간색 원으로 표시할 좌표
+            try:
+                recording_start[M_id][2] = mx
+                recording_start[M_id][3] = my
+            except:
+                pass
+
+            if cls == 0:
+                print("경고! 고속도로 위에서 사람 발견")
+
+            elif cls == 3:
+                print("경고! 고속도로 위에서 오토바이 발견")
 
     # 분석하지 않는 화면 하얀색으로 전처리
 
