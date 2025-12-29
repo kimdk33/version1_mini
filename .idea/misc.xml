@@ -4,7 +4,7 @@
     <option name="enabledOnSave" value="true" />
     <option name="sdkName" value="Python 3.13 (PyCharmMiscProject)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (PyCharmMiscProject)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="uv (version1_mini)" project-jdk-type="Python SDK" />
   <component name="RuffConfiguration">
     <option name="enabled" value="true" />
     <option name="executableDiscoveryMode" value="PATH" />

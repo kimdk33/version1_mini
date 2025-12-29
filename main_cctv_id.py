@@ -44,7 +44,7 @@ def _send_anomaly_request(file_path, anomaly_type, cctv_id):
 
 
 file_path = f"./videos/monitoring.mp4"
-cctv_id = "8"
+cctv_id = "2" #다른 cctv라고치고
 cap = cv2.VideoCapture(file_path)
 
 
