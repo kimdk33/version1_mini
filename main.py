@@ -1,5 +1,5 @@
 import cv2
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from ultralytics import YOLO
 from collections import deque
@@ -7,9 +7,34 @@ from detect_stopped_car import detect_highway_stopped_vehicle
 from get_speed_direction import detect_car_direction
 from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
 import time
+import requests
+from concurrent.futures import ThreadPoolExecutor
+
+# API 설정
+API_BASE_URL = "http://localhost:5000/api"
+
+# 비동기 업로드를 위한 ThreadPoolExecutor (최대 4개의 동시 업로드)
+executor = ThreadPoolExecutor(max_workers=4)
 
 
-file_path = f"/content/drive/MyDrive/videos/jung-bu_Danpyung_1gyo.mp4"
+def upload_anomaly_async(file_path, anomaly_type, cctv_id, detected_at):
+    """이상 감지 영상을 서버에 업로드"""
+    try:
+        url = f"{API_BASE_URL}/traffic_anomalies"
+        data = {
+            "type": anomaly_type,
+            "cctv_id": str(cctv_id),
+            "detected_at": detected_at.isoformat(),
+        }
+        with open(file_path, "rb") as f:
+            files = {"file": (file_path, f, "video/mp4")}
+            response = requests.post(url, data=data, files=files, timeout=30)
+        print(f"[업로드 완료] {file_path} - Status: {response.status_code}")
+    except Exception as e:
+        print(f"[업로드 실패] {file_path} - Error: {e}")
+
+
+file_path = f"./videos/manimani.mp4"
 cctv_id = 4
 cap = cv2.VideoCapture(file_path)
 
@@ -20,12 +45,17 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 one_second = 1 * 5 / fps
 
 
-model = YOLO("best1.pt")
-model1 = YOLO("yolov8n.pt")
+model = YOLO("./best1_openvino_model")
+model1 = YOLO("./yolov8n_openvino_model")
 # 실시간으로 6초 180개의 frame을 저장할 리스트 dq 설정
 dq = deque(maxlen=100)
 frame_num = 0
 frame_count = 0
+
+# 시간 관리: 특정 시각을 start_time으로 설정
+start_time = datetime(2025, 12, 29, 10, 0, 0)  # 원하는 시작 시각 설정
+current_time = start_time
+frames_per_second = int(fps)  # 1초당 프레임 수
 
 # 탐지된 차량 저장 딕션너리
 
@@ -41,14 +71,19 @@ while cap.isOpened():
     frame_num += 1
     frame_count += 1
     direction = None
-    print(frame_num, frame_count)
-    if frame_count % 2 != 0:
-        continue
+
+    # fps 프레임마다 (1초마다) current_time에 1초 추가
+    if frame_count % frames_per_second == 0:
+        current_time += timedelta(seconds=1)
 
     # print("Vehicle ID", vehicle_id)
     success, frame = cap.read()
     if not success:
         break
+
+    print(frame_num, frame_count, current_time)
+    if frame_count % 2 != 0:
+        continue
 
     # =================================================================
     # =======================  오토바이 & 사람 탐지  =====================
@@ -64,8 +99,8 @@ while cap.isOpened():
             M_id = int(box.id)
             cls = int(box.cls)
             mx, my, _, _ = box.xywh[0].tolist()
-            date_time = datetime.now()
-            file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
+            date_time = current_time
+            file_name = f"motorcycle_people_{date_time.strftime('%Y_%m_%d_%H_%M_%S')}"
             # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
             recording_start[M_id] = [(frame_num + 60) % 180, file_name, mx, my]
 
@@ -112,9 +147,9 @@ while cap.isOpened():
                 print(f"차량 번호 : {stopped_id}: 고속도로 위에 주정차되어 있습니다.")
 
                 # 현시간을 기준으로 전후 3초, 총 6초간 동영상 녹화
-                stopped_car_datetime = datetime.now()
+                stopped_car_datetime = current_time
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
-                file_name = f"parking[{tid}]_{stopped_car_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
+                file_name = f"parking[{tid}]_{stopped_car_datetime.strftime('%Y_%m_%d_%H_%M_%S')}"
                 recording_start[tid] = [(frame_num + 60) % 180, file_name, cx, cy]
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = ["parking", f"{file_name}.mp4"]
@@ -173,9 +208,9 @@ while cap.isOpened():
             if detect_wrong_way_car:
                 print(f"경고!! 역주행 차량{tid}가 발견되었습니다.")
 
-                wrong_way_datetime = datetime.now()
+                wrong_way_datetime = current_time
                 # file_name 예시 parking_25-12-19_13:00:00.mp4
-                file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
+                file_name = f"wrong_way[{tid}]_{wrong_way_datetime.strftime('%Y_%m_%d_%H_%M_%S')}"
                 recording_start[tid] = [(frame_num + 60) % 180, file_name, cx, cy]
                 # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
                 df.loc[tid, ["illegal", "file_name"]] = [
@@ -189,7 +224,6 @@ while cap.isOpened():
                 df.loc[tid, "speed"] = "learning"
 
             else:
-
                 df.loc[tid, "speed"] = speed_px1 * real_speed
                 # print(cls, df.loc[tid, "speed"])
 
@@ -201,10 +235,32 @@ while cap.isOpened():
                 file_out_path = f"./results/{recording_start[key][1]}.mp4"
                 out = cv2.VideoWriter(file_out_path, fourcc, fps, (720, 480))
                 print("리코딩을 시작합니다")
-                for f in dq:
-                    out.write(f)
+                for frm in dq:
+                    out.write(frm)
 
                 out.release()
+
+                # 파일 이름에서 이상 타입 추출 후 비동기 업로드
+                file_name = recording_start[key][1]
+                if file_name.startswith("parking"):
+                    anomaly_type = "불법주차"
+                elif file_name.startswith("wrong_way"):
+                    anomaly_type = "역주행"
+                elif file_name.startswith("motorcycle"):
+                    anomaly_type = "오토바이"
+                else:
+                    anomaly_type = "기타"
+
+                # 비동기로 서버에 업로드 (메인 루프 블로킹 없음)
+                executor.submit(
+                    upload_anomaly_async,
+                    file_out_path,
+                    anomaly_type,
+                    cctv_id,
+                    current_time
+                )
+                print(f"[비동기 업로드 요청] {file_out_path}")
+
                 recording_start.pop(key)  # 한 번만 실행
 
     if frame_num == 180:
@@ -229,7 +285,7 @@ while cap.isOpened():
 
     # 30분 간격(프레임 54000)일, 그리고 버튼 [r]을 누르면, 엑셀파일로 데이터 내보낸다.
     if frame_count % 54000 == 0:
-        file_excel = f"/content/drive/MyDrive/results/highway_jungbu_danpyung.xlsx"
+        file_excel = f"./results/highway_jungbu_danpyung.xlsx"
         df.to_excel(file_excel, index=False)
         print("엑셀로 교통분석을 내보냅니다.")
 
@@ -238,8 +294,13 @@ while cap.isOpened():
 
 # DB로 저장한다.
 
-file_excel = f"/content/drive/MyDrive/results/highway_traffic[{cctv_id}]_final.xlsx"
+file_excel = f"./results/highway_traffic[{cctv_id}]_final.xlsx"
 df.to_excel(file_excel, index=False)
+
+# 비동기 업로드 완료 대기 후 executor 종료
+print("남은 업로드 작업 완료 대기 중...")
+executor.shutdown(wait=True)
+print("모든 업로드 완료")
 
 cap.release()
 cv2.destroyAllWindows()
